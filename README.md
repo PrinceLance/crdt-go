@@ -2,6 +2,7 @@
 
 ## Introduction
 This is a Golang implementation of crdt Last-Writer-Wins element set.
+Currently it have 100% test coverage
 
 ## Getting Started
 First, install the library using below command in the console
