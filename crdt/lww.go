@@ -9,10 +9,10 @@ import (
 // The set should provide those implementation:
 //	payload set A, set R
 //	query lookup(element e) : boolean b
-//  update add(element e)
-//  update remove(element e)
-//  compare (S, T) : boolean b
-//  merge (S, T) : payload U
+//	update add(element e)
+//	update remove(element e)
+//	compare (S, T) : boolean b
+//	merge (S, T) : payload U
 type LWWSet struct {
 	// Addition Set of LWW Set
 	addSet map[interface{}]time.Time
@@ -220,15 +220,14 @@ func (setS *LWWSet) CompareContent(setT *LWWSet, compareBias bool) bool {
 // merge (S, T) : payload U
 // Merge merges T and S and return the resulting LWW SET with bias same as S
 func Merge(setS *LWWSet, setT *LWWSet) *LWWSet {
-
-	var setU = NewLWWSet(setS.bias)
-
 	// Deep Copying
-	setU.addSet = setS.GetAddSet()
-	setU.removeSet = setS.GetRemoveSet()
+	var setU = &LWWSet{
+		addSet: setS.GetAddSet(),
+		removeSet:  setS.GetRemoveSet(),
+		bias: setS.bias,
+	}
 
 	setU.MergeWith(setT)
-
 	return setU
 }
 

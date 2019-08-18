@@ -45,10 +45,10 @@ crdt-go/crdt/lww.go:194.43,196.3 1 1
 crdt-go/crdt/lww.go:202.42,204.3 1 1
 crdt-go/crdt/lww.go:207.34,211.16 2 1
 crdt-go/crdt/lww.go:211.16,213.4 1 1
-crdt-go/crdt/lww.go:222.48,233.2 5 1
-crdt-go/crdt/lww.go:236.45,238.34 1 1
-crdt-go/crdt/lww.go:247.2,247.40 1 1
-crdt-go/crdt/lww.go:238.34,242.44 3 1
-crdt-go/crdt/lww.go:242.44,244.4 1 1
-crdt-go/crdt/lww.go:247.40,251.52 3 1
-crdt-go/crdt/lww.go:251.52,253.4 1 1
+crdt-go/crdt/lww.go:222.48,232.2 3 1
+crdt-go/crdt/lww.go:235.45,237.34 1 1
+crdt-go/crdt/lww.go:246.2,246.40 1 1
+crdt-go/crdt/lww.go:237.34,241.44 3 1
+crdt-go/crdt/lww.go:241.44,243.4 1 1
+crdt-go/crdt/lww.go:246.40,250.52 3 1
+crdt-go/crdt/lww.go:250.52,252.4 1 1
