@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Implementation of state based LWW set, in non functional programming style for performance
+// Implementation of state based LWW set
 // According to https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type#LWW-Element-Set_(Last-Write-Wins-Element-Set)
 // The set should provide those implementation:
 //	payload set A, set R
@@ -41,32 +41,81 @@ func NewLWWSet(bias string) *LWWSet {
 	}
 }
 
+// Content return a map containing the values
+func (setS *LWWSet) GetContent() map[interface{}]time.Time {
+	var content = make(map[interface{}]time.Time)
+
+	// check element by element
+	for addKey := range setS.addSet {
+		var SAddTime = setS.addSet[addKey]
+		var SRemoveTime, keyExistInRemoveSet  = setS.removeSet[addKey]
+		// there are 4 cases
+		// keyExistInRemoveSet == false --> value exist
+		// SAddTime > SRemoveTime  --> value exist
+		// SAddTime == SRemoveTime  --> value exist if bias is ADD
+		// SAddTime < SRemoveTime  --> value do not exist / deleted
+		if !keyExistInRemoveSet || SAddTime.After(SRemoveTime) ||
+			( SAddTime.Equal(SRemoveTime) && setS.bias == "ADD"){
+			content[addKey] = SAddTime
+		}
+	}
+
+	return content
+}
+
+// GetAddSet return the add set of the set
+func (setS *LWWSet) GetAddSet() map[interface{}]time.Time {
+	var content = make(map[interface{}]time.Time)
+	// Deep Copy
+	for addKey := range setS.addSet {
+		var SAddTime = setS.addSet[addKey]
+		content[addKey] = SAddTime
+	}
+	return content
+}
+
+// GetRemoveSet return the remove set of the set
+func (setS *LWWSet) GetRemoveSet() map[interface{}]time.Time {
+	var content = make(map[interface{}]time.Time)
+	// Deep Copy
+	for removeKey := range setS.removeSet {
+		var SRemoveTime = setS.removeSet[removeKey]
+		content[removeKey] = SRemoveTime
+	}
+	return content
+}
+
+// GetBias return the bias of the set
+func (setS *LWWSet) GetBias() string {
+	return setS.bias
+}
+
 // update add(element e)
 // Add adds a value to the add Set
-func (set *LWWSet) Add(value interface{}) {
-	set.addSet[value] = time.Now()
+func (setS *LWWSet) Add(value interface{}) {
+	setS.addSet[value] = time.Now()
 	// Optional, can also remove the same value from remove set
 }
 
 // update remove(element e)
 // Remove adds a value to the remove Set
-func (set *LWWSet) Remove(value interface{}) {
-	set.removeSet[value] = time.Now()
+func (setS *LWWSet) Remove(value interface{}) {
+	setS.removeSet[value] = time.Now()
 	// Optional, can also remove the same value from add set
 }
 
 // query lookup(element e) : boolean b
 // Query checks if the value exist in the lww set
-func (set *LWWSet) Query(value interface{}) bool {
+func (setS *LWWSet) Query(value interface{}) bool {
 
-	var addTime, addOk = set.addSet[value]
+	var addTime, addOk = setS.addSet[value]
 	// If the value is not present in add set
 	// then it is not in the set
 	if !addOk {
 		return false
 	}
 
-	var removeTime, removeOk = set.removeSet[value]
+	var removeTime, removeOk = setS.removeSet[value]
 	// If the value is present in add set but not in remove set
 	// then it exist in the set
 	if !removeOk {
@@ -78,7 +127,7 @@ func (set *LWWSet) Query(value interface{}) bool {
 	// if both times are equal, then we we need to check the bias
 	if addTime.Equal(removeTime) {
 		// check bias
-		if set.bias == "REMOVE" {
+		if setS.bias == "REMOVE" {
 			// biased towards remove, which mean remove wins
 			return false
 		} else {
@@ -115,20 +164,51 @@ func (setS *LWWSet) Compare(setT *LWWSet, compareBias bool) bool {
 
 	// check element by element
 	for addKey := range setS.addSet {
-		var SValue = setS.addSet[addKey]
-		var TValue, keyExist = setT.addSet[addKey]
+		var SAddTime = setS.addSet[addKey]
+		var TAddTime, keyExist = setT.addSet[addKey]
 		// if key doesnt exist or not equal, it mean the 2 set are different
-		if !keyExist || !SValue.Equal(TValue) {
+		if !keyExist || !SAddTime.Equal(TAddTime) {
 			return false
 		}
 	}
 
 	// check element by element
 	for removeKey := range setS.removeSet {
-		var SValue = setS.removeSet[removeKey]
-		var TValue, keyExist = setT.removeSet[removeKey]
+		var SRemoveTime = setS.removeSet[removeKey]
+		var TRemoveTime, keyExist = setT.removeSet[removeKey]
 		// if key doesnt exist or not equal, it mean the 2 set are different
-		if !keyExist || !SValue.Equal(TValue) {
+		if !keyExist || !SRemoveTime.Equal(TRemoveTime) {
+			return false
+		}
+	}
+
+	// "When you have eliminated the impossible, whatever remains, however improbable, must be the truth"
+	return true
+}
+
+// CompareContent compares the contents 2 sets
+// this is a less strict function to just compare the contents but don't care the time of addition
+// if compareBias is true then it also check if their bias are the same
+func (setS *LWWSet) CompareContent(setT *LWWSet, compareBias bool) bool {
+
+	if compareBias && setS.bias != setT.bias {
+		return false
+	}
+
+	var setSContent = setS.GetContent()
+	var setTContent = setT.GetContent()
+
+	// if the length of the sets are different then it is sure to be different
+	if len(setSContent) != len(setTContent) {
+		return false
+	}
+
+	// check element by element
+	for addKey := range setSContent {
+		var _, keyExist = setT.addSet[addKey] // do not care the time
+
+		// if key doesnt exist or not equal, it mean the 2 set are different
+		if !keyExist {
 			return false
 		}
 	}
@@ -138,8 +218,22 @@ func (setS *LWWSet) Compare(setT *LWWSet, compareBias bool) bool {
 }
 
 // merge (S, T) : payload U
-// Merge merges T into S
-func (setS *LWWSet) Merge(setT *LWWSet) {
+// Merge merges T and S and return the resulting LWW SET with bias same as S
+func Merge(setS *LWWSet, setT *LWWSet) *LWWSet {
+
+	var setU = NewLWWSet(setS.bias)
+
+	// Deep Copying
+	setU.addSet = setS.GetAddSet()
+	setU.removeSet = setS.GetRemoveSet()
+
+	setU.MergeWith(setT)
+
+	return setU
+}
+
+// MergeWith merges T into S
+func (setS *LWWSet) MergeWith(setT *LWWSet) {
 
 	for addKey := range setT.addSet {
 		var TAddTime = setT.addSet[addKey]
@@ -155,7 +249,7 @@ func (setS *LWWSet) Merge(setT *LWWSet) {
 		var SRemoveTime, keyExist= setS.removeSet[removeKey]
 		// the key doesnt exist in set S OR the remove time in setT is after setS, we update the value in setS
 		if !keyExist || (TRemoveTime.After(SRemoveTime)) {
-				setS.removeSet[removeKey] = TRemoveTime
-			}
+			setS.removeSet[removeKey] = TRemoveTime
+		}
 	}
 }
