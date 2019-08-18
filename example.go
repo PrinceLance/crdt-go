@@ -1,7 +1,7 @@
 package main
 
 import (
-	"CRDT/crdt"
+	"crdt-go/crdt"
 	"fmt"
 	"time"
 )
@@ -28,21 +28,10 @@ func example() {
 	SetT.Remove(123)
 	SetT.Remove(1234)
 
-	// Printing Contents for debugging
-	SetS.Print()
-	//Contents of add setmap[Hello:2019-08-18 16:21:24.9182782 +0800 CST m=+0.011999801]
-	//Contents of remove setmap[Hello:2019-08-18 16:21:24.9192719 +0800 CST m=+0.012993401]
-	//Contents of biasADD
-
-	SetT.Print()
-	//Contents of add setmap[123:2019-08-18 16:21:24.9182782 +0800 CST m=+0.011999801]
-	//Contents of remove setmap[123:2019-08-18 16:21:24.9192719 +0800 CST m=+0.012993401 1234:2019-08-18 16:21:24.9192719 +0800 CST m=+0.012993401]
-	//Contents of biasREMOVE
-
 	// Querying Value
 	fmt.Println(SetS.Query("Hello"))   // true <- because it happens on the same time, but the bias is add
 	fmt.Println(SetS.Query("Hello213"))  // false
-	fmt.Println(SetT.Query(123))  // false <- because it happens on the same time, but the remove is add
+	fmt.Println(SetT.Query(123))  // false <- because it happens on the same time, but the bias is remove
 	fmt.Println(SetT.Query(1234))  // false
 
 	// Lets wait 1 ms before removing again
@@ -56,6 +45,15 @@ func example() {
 	time.Sleep(1 * time.Microsecond)
 	SetS.Add("Hello")
 	fmt.Println(SetS.Query("Hello")) // now it is true
+
+	// Comparison
+	fmt.Println(SetS.Compare(SetT, false)) // false
+
+	// Merging
+	SetS.Merge(SetT) // SetS is equal to union of SetS and SetT after this line, but SetT is unchanged
+	SetT.Merge(SetS)
+
+	fmt.Println(SetS.Compare(SetT, false)) // true
 }
 
 func main(){

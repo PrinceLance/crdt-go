@@ -1,7 +1,6 @@
 package crdt
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -46,12 +45,14 @@ func NewLWWSet(bias string) *LWWSet {
 // Add adds a value to the add Set
 func (set *LWWSet) Add(value interface{}) {
 	set.addSet[value] = time.Now()
+	// Optional, can also remove the same value from remove set
 }
 
 // update remove(element e)
 // Remove adds a value to the remove Set
 func (set *LWWSet) Remove(value interface{}) {
 	set.removeSet[value] = time.Now()
+	// Optional, can also remove the same value from add set
 }
 
 // query lookup(element e) : boolean b
@@ -87,11 +88,9 @@ func (set *LWWSet) Query(value interface{}) bool {
  	} else {
 		if addTime.After(removeTime) {
 			// add is the latest input, it wins
-			delete(set.removeSet, value) // micro optimization, remove the element from remove set
 			return true
 		} else {
 			// remove is the latest input, it wins
-			delete(set.addSet, value) // micro optimization, remove the element from add set
 			return false
 		}
 	}
@@ -101,7 +100,12 @@ func (set *LWWSet) Query(value interface{}) bool {
 // Compare compares 2 sets
 // define equal here as the LWW set having the same elements in add and remove set
 // AND their times are equal
-func (setS *LWWSet) Compare(setT *LWWSet) bool {
+// if compareBias is true then it also check if their bias are the same
+func (setS *LWWSet) Compare(setT *LWWSet, compareBias bool) bool {
+
+	if compareBias && setS.bias != setT.bias {
+		return false
+	}
 
 	// if the length of the sets are different then it is sure to be different
 	if len(setS.addSet) != len(setT.addSet) ||
@@ -154,60 +158,4 @@ func (setS *LWWSet) Merge(setT *LWWSet) {
 				setS.removeSet[removeKey] = TRemoveTime
 			}
 	}
-
-	// Cleans the set, remove redundant history
-	setS.Clean()
-}
-
-////////////////////////////////////////
-// Utilies, use only if you know what you are doing
-////////////////////////////////////////
-// Clean is a helper function that deletes unused element ans helps to keep the memory usage low
-// Use if there is lot of data that is not updated frequently
-// if an element exist in both add ana remove set, remove the older one
-func (set *LWWSet) Clean() {
-
-	for addKey := range set.addSet {
-		var addTime= set.addSet[addKey]
-		var removeTime, removeOk= set.removeSet[addKey]
-
-		// if value exist in remove set
-		if removeOk {
-			if addTime.After(removeTime) ||
-				(addTime.Equal(removeTime) && set.bias == "ADD") {
-				// if add is after remove Or ( add is equal remove but the bias is towards add)
-				// delete the value in remove set to saves memory
-				delete(set.removeSet, addKey)
-			}
-			// no else here as we are inside the range loop, better not delete
-		}
-	}
-
-	for removeKey := range set.removeSet {
-		var removeTime = set.removeSet[removeKey]
-		var addTime, addOK = set.addSet[removeKey]
-
-		// if value exist in add set
-		if addOK {
-			if removeTime.After(addTime) ||
-				(removeTime.Equal(addTime) && set.bias == "REMOVE") {
-				// if remove is after add Or ( remove is equal add but the bias is towards remove)
-				// delete the value in remove set to saves memory
-				delete(set.addSet, removeKey)
-			}
-			// no else here as we are inside the range loop, better not delete
-		}
-	}
-}
-
-// Print prints the contents of the set and input it into console
-func (set *LWWSet) Print() {
-	fmt.Print("Contents of add set: ")
-	fmt.Println(set.addSet)
-
-	fmt.Print("Contents of remove set: ")
-	fmt.Println(set.removeSet)
-
-	fmt.Print("Contents of bias: ")
-	fmt.Println(set.bias)
 }
